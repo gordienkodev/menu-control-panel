@@ -1,6 +1,14 @@
+import { parseMenuFilters } from "@/features/stop-list/model/filters";
+import { Filters } from "@/features/stop-list/ui/Filters";
 import { StopListTable } from "@/features/stop-list/ui/StopListTable";
 
-export default function Home() {
+type HomeProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function Home({ searchParams }: HomeProps) {
+  const filters = parseMenuFilters(await searchParams);
+
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
@@ -14,7 +22,8 @@ export default function Home() {
           </p>
         </header>
 
-        <StopListTable />
+        <Filters filters={filters} />
+        <StopListTable filters={filters} />
       </div>
     </main>
   );

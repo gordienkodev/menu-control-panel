@@ -2,6 +2,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 
+import {
+  filterMenuItems,
+  type MenuFilters,
+} from "@/features/stop-list/model/filters";
 import { menuItemsQueryOptions } from "@/features/stop-list/model/queries";
 import type {
   MenuItem,
@@ -96,7 +100,11 @@ function LoadingState() {
   );
 }
 
-export function StopListTable() {
+type StopListTableProps = {
+  filters: MenuFilters;
+};
+
+export function StopListTable({ filters }: StopListTableProps) {
   const menuQuery = useQuery(menuItemsQueryOptions());
 
   if (menuQuery.isPending) {
@@ -140,6 +148,23 @@ export function StopListTable() {
     );
   }
 
+  const filteredItems = filterMenuItems(menuQuery.data, filters);
+
+  if (filteredItems.length === 0) {
+    return (
+      <div className="flex min-h-64 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-6 text-center">
+        <div>
+          <h2 className="font-semibold text-slate-900">
+            По выбранным фильтрам позиции не найдены
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Измените или сбросьте фильтры.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
       <table className="w-full min-w-4xl border-collapse text-sm">
@@ -163,7 +188,7 @@ export function StopListTable() {
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-200">
-          {menuQuery.data.map((item) => (
+          {filteredItems.map((item) => (
             <MenuRow key={item.id} item={item} />
           ))}
         </tbody>

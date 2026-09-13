@@ -24,11 +24,12 @@ You can start editing the page by modifying `src/app/page.tsx`. The page auto-up
 wraps the application in the client-side `Providers` boundary, which owns the
 TanStack Query client.
 
-The menu data flow is:
+The menu data and filter flow is:
 
 ```text
-Page (Server Component)
-  -> StopListTable (Client Component)
+URL search params
+  -> Page (Server Component): parse and normalize shop/status
+  -> Filters + StopListTable (Client Components)
   -> TanStack Query configuration
   -> menu API transport
   -> GET /api/menu-items
@@ -36,7 +37,10 @@ Page (Server Component)
 ```
 
 Server state stays in the TanStack Query cache. UI components do not call
-`fetch` or import the server store directly.
+`fetch` or import the server store directly. The URL is the only source of truth
+for `shop` and `status`: filter controls update it with client-side navigation,
+while the table filters the cached full menu without changing the query key or
+requesting the API again.
 
 ## Learn More
 
