@@ -1,6 +1,10 @@
 import "server-only";
 
-import type { MenuItem } from "@/types/menu";
+import type { MenuItem, StopItemPayload } from "@/types/menu";
+
+type MenuItemMutationResult =
+  | { ok: true; item: MenuItem }
+  | { ok: false; error: "not_found" | "out_of_stock" };
 
 const menuItems: MenuItem[] = [
   {
@@ -139,4 +143,53 @@ const menuItems: MenuItem[] = [
 
 export function getMenuItems(): MenuItem[] {
   return menuItems;
+}
+
+export function stopMenuItem(
+  id: string,
+  payload: StopItemPayload,
+): MenuItemMutationResult {
+  const itemIndex = menuItems.findIndex((item) => item.id === id);
+
+  if (itemIndex === -1) {
+    return { ok: false, error: "not_found" };
+  }
+
+  const updatedItem: MenuItem = {
+    ...menuItems[itemIndex],
+    status: {
+      kind: "stopped",
+      reason: payload.reason,
+      until: payload.until,
+    },
+    updatedAt: new Date().toISOString(),
+  };
+
+  menuItems[itemIndex] = updatedItem;
+
+  return { ok: true, item: updatedItem };
+}
+
+export function resumeMenuItem(id: string): MenuItemMutationResult {
+  const itemIndex = menuItems.findIndex((item) => item.id === id);
+
+  if (itemIndex === -1) {
+    return { ok: false, error: "not_found" };
+  }
+
+  const item = menuItems[itemIndex];
+
+  if (item.stock === 0) {
+    return { ok: false, error: "out_of_stock" };
+  }
+
+  const updatedItem: MenuItem = {
+    ...item,
+    status: { kind: "available" },
+    updatedAt: new Date().toISOString(),
+  };
+
+  menuItems[itemIndex] = updatedItem;
+
+  return { ok: true, item: updatedItem };
 }

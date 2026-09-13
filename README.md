@@ -48,6 +48,13 @@ Hook Form owns the form state. A shared Zod schema validates and produces the
 `StopItemPayload`; submitting currently invokes a local callback and does not
 send a mutation request.
 
+The server also exposes `POST /api/menu-items/:id/stop` and
+`POST /api/menu-items/:id/resume`. Both handlers update the same server-only
+in-memory store used by the GET endpoint, wait 600 ms, and simulate a failure
+before mutation in roughly 20% of requests. The stop handler reuses the form's
+Zod schema for request validation. These endpoints are not connected to the UI
+yet; TanStack Query mutations and optimistic updates belong to the next stage.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
