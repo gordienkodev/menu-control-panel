@@ -1,7 +1,8 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { useEffect, useRef } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 
 import {
@@ -43,12 +44,15 @@ export function StopReasonPanel({
   onSubmit,
 }: StopReasonPanelProps) {
   const closePanel = useStopListUi((state) => state.closePanel);
+  const panelRef = useRef<HTMLElement>(null);
+  const shouldReduceMotion = useReducedMotion();
   const isEditMode = item.status.kind === "stopped";
   const {
     control,
     handleSubmit,
     register,
     reset,
+    setFocus,
     setValue,
     formState: { errors },
   } = useForm<StopItemFormValues>({
@@ -64,15 +68,44 @@ export function StopReasonPanel({
   }, [item, reset]);
 
   useEffect(() => {
+    const frameId = window.requestAnimationFrame(() => setFocus("reason"));
+
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        event.preventDefault();
         closePanel();
+        return;
+      }
+
+      if (event.key !== "Tab" || !panelRef.current) {
+        return;
+      }
+
+      const focusableElements = panelRef.current.querySelectorAll<HTMLElement>(
+        'button:not(:disabled), select:not(:disabled), input:not(:disabled)',
+      );
+      const firstElement = focusableElements.item(0);
+      const lastElement = focusableElements.item(focusableElements.length - 1);
+
+      if (!firstElement || !lastElement) {
+        return;
+      }
+
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
       }
     }
 
     document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [closePanel]);
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [closePanel, setFocus]);
 
   function submitPayload(payload: StopItemFormValues) {
     if (isPending) {
@@ -84,16 +117,46 @@ export function StopReasonPanel({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/35">
-      <section
+    <motion.div
+      animate={{ opacity: 1 }}
+      className="fixed inset-0 z-50 flex justify-end bg-slate-950/40 p-2 sm:p-4"
+      exit={{ opacity: 0 }}
+      initial={{ opacity: 0 }}
+      transition={{ duration: shouldReduceMotion ? 0 : 0.18 }}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          closePanel();
+        }
+      }}
+    >
+      <motion.section
+        ref={panelRef}
+        animate={{ opacity: 1, x: 0, scale: 1 }}
+        aria-busy={isPending}
+        aria-describedby="stop-reason-panel-description"
         aria-labelledby="stop-reason-panel-title"
         aria-modal="true"
-        className="h-full w-full max-w-md overflow-y-auto bg-white p-6 shadow-2xl"
+        className="h-full max-h-full w-full max-w-md overflow-y-auto rounded-xl bg-white p-4 shadow-2xl sm:p-6"
+        exit={{
+          opacity: 0,
+          x: shouldReduceMotion ? 0 : 20,
+          scale: shouldReduceMotion ? 1 : 0.99,
+        }}
+        initial={{
+          opacity: 0,
+          x: shouldReduceMotion ? 0 : 20,
+          scale: shouldReduceMotion ? 1 : 0.99,
+        }}
         role="dialog"
+        transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
+        onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold text-slate-500">
+            <p
+              className="text-sm font-semibold text-slate-500"
+              id="stop-reason-panel-description"
+            >
               {isEditMode ? "Редактирование стоп-листа" : "Добавление в стоп-лист"}
             </p>
             <h2
@@ -105,7 +168,6 @@ export function StopReasonPanel({
           </div>
           <button
             aria-label="Закрыть панель"
-            autoFocus
             className="rounded-lg p-2 text-xl leading-none text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700"
             type="button"
             onClick={closePanel}
@@ -229,7 +291,7 @@ export function StopReasonPanel({
             />
           )}
 
-          <div className="flex justify-end gap-3 border-t border-slate-200 pt-5">
+          <div className="flex flex-wrap justify-end gap-3 border-t border-slate-200 pt-5">
             <button
               className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700"
               type="button"
@@ -250,7 +312,7 @@ export function StopReasonPanel({
             </button>
           </div>
         </form>
-      </section>
-    </div>
+      </motion.section>
+    </motion.div>
   );
 }

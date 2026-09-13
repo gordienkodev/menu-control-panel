@@ -75,6 +75,18 @@ and disappears automatically after five seconds. A per-item synchronous guard
 also complements disabled pending controls to prevent rapid duplicate requests
 before React can render the pending state.
 
+The stop-list UI uses short Framer Motion transitions for the dialog backdrop,
+side panel, toast, status badge, and filtered empty state. Each transition checks
+the user's reduced-motion preference and removes transform movement when motion
+is reduced. The dialog focuses its first form control when opened, contains Tab
+navigation, closes through Escape, its close buttons, or the backdrop, and
+returns focus to the action button after its exit animation when that button is
+still present. Dialog labels, validation errors, row-level pending state, toast
+announcements, and the disabled zero-stock resume explanation are exposed with
+targeted ARIA attributes. The filters wrap on narrow screens, the panel remains
+inside the viewport, and the semantic table is available in a keyboard-focusable
+horizontal scroll region.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

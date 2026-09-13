@@ -1,7 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { useEffect, useRef } from "react";
 
 import {
   filterMenuItems,
@@ -64,7 +65,7 @@ function StopDetails({ status }: { status: MenuItemStatus }) {
 type MenuRowProps = {
   item: MenuItem;
   isPending: boolean;
-  onOpenPanel: (itemId: string) => void;
+  onOpenPanel: (itemId: string, trigger: HTMLButtonElement) => void;
   onResume: (itemId: string) => void;
 };
 
@@ -72,9 +73,15 @@ function MenuRow({ item, isPending, onOpenPanel, onResume }: MenuRowProps) {
   const isStopped = item.status.kind === "stopped";
   const cannotResume = isStopped && item.stock === 0;
   const resumeDescriptionId = `resume-${item.id}-description`;
+  const shouldReduceMotion = useReducedMotion();
 
   return (
-    <tr className={isStopped ? "bg-red-50/70" : "bg-white"}>
+    <tr
+      aria-busy={isPending}
+      className={`transition-colors duration-200 motion-reduce:transition-none ${
+        isStopped ? "bg-red-50/70" : "bg-white"
+      }`}
+    >
       <th
         scope="row"
         className="px-6 py-4 text-left font-medium text-slate-950"
@@ -84,15 +91,22 @@ function MenuRow({ item, isPending, onOpenPanel, onResume }: MenuRowProps) {
       <td className="px-6 py-4 text-slate-600">{shopLabels[item.shop]}</td>
       <td className="px-6 py-4 text-slate-600">{item.stock}</td>
       <td className="px-6 py-4">
-        <span
-          className={
-            isStopped
-              ? "inline-flex rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700"
-              : "inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700"
-          }
-        >
-          {isStopped ? "Остановлена" : "Доступна"}
-        </span>
+        <AnimatePresence initial={false} mode="wait">
+          <motion.span
+            key={item.status.kind}
+            animate={{ opacity: 1, y: 0 }}
+            className={
+              isStopped
+                ? "inline-flex rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-800"
+                : "inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800"
+            }
+            exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -2 }}
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 2 }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.15 }}
+          >
+            {isStopped ? "В стоп-листе" : "Доступно"}
+          </motion.span>
+        </AnimatePresence>
       </td>
       <td className="px-6 py-4 text-slate-600">
         <StopDetails status={item.status} />
@@ -104,7 +118,7 @@ function MenuRow({ item, isPending, onOpenPanel, onResume }: MenuRowProps) {
               className="whitespace-nowrap rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
               disabled={isPending}
               type="button"
-              onClick={() => onOpenPanel(item.id)}
+              onClick={(event) => onOpenPanel(item.id, event.currentTarget)}
             >
               {isPending
                 ? "Сохраняется…"
@@ -145,7 +159,7 @@ function LoadingState() {
       role="status"
     >
       <div className="flex items-center gap-3 text-sm font-medium text-slate-600">
-        <span className="size-5 animate-spin rounded-full border-2 border-slate-200 border-t-slate-700" />
+        <span className="size-5 animate-spin rounded-full border-2 border-slate-200 border-t-slate-700 motion-reduce:animate-none" />
         Загружаем позиции меню…
       </div>
     </div>
@@ -163,6 +177,8 @@ export function StopListTable({ filters }: StopListTableProps) {
   const selectedItemId = useStopListUi((state) => state.selectedItemId);
   const openPanel = useStopListUi((state) => state.openPanel);
   const closePanel = useStopListUi((state) => state.closePanel);
+  const panelTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const shouldReduceMotion = useReducedMotion();
   const selectedItem = menuQuery.data?.find(
     (item) => item.id === selectedItemId,
   );
@@ -218,7 +234,12 @@ export function StopListTable({ filters }: StopListTableProps) {
 
   if (filteredItems.length === 0) {
     return (
-      <div className="flex min-h-64 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-6 text-center">
+      <motion.div
+        animate={{ opacity: 1, y: 0 }}
+        className="flex min-h-64 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-6 text-center"
+        initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 4 }}
+        transition={{ duration: shouldReduceMotion ? 0 : 0.18 }}
+      >
         <div>
           <h2 className="font-semibold text-slate-900">
             По выбранным фильтрам позиции не найдены
@@ -227,7 +248,7 @@ export function StopListTable({ filters }: StopListTableProps) {
             Измените или сбросьте фильтры.
           </p>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
@@ -246,7 +267,12 @@ export function StopListTable({ filters }: StopListTableProps) {
 
   return (
     <>
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div
+        aria-label="Позиции меню. На узком экране таблица прокручивается горизонтально"
+        className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700"
+        role="region"
+        tabIndex={0}
+      >
         <table className="w-full min-w-[72rem] border-collapse text-sm">
           <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-500">
             <tr>
@@ -276,20 +302,33 @@ export function StopListTable({ filters }: StopListTableProps) {
                 key={item.id}
                 item={item}
                 isPending={pendingItemIds.has(item.id)}
-                onOpenPanel={openPanel}
+                onOpenPanel={(id, trigger) => {
+                  panelTriggerRef.current = trigger;
+                  openPanel(id);
+                }}
                 onResume={(id) => resumeItemMutation.mutateOnce({ id })}
               />
             ))}
           </tbody>
         </table>
       </div>
-      {selectedItem && (
-        <StopReasonPanel
-          item={selectedItem}
-          isPending={stopItemMutation.pendingItemIds.has(selectedItem.id)}
-          onSubmit={handlePreparedPayload}
-        />
-      )}
+      <AnimatePresence
+        onExitComplete={() => {
+          if (panelTriggerRef.current?.isConnected) {
+            panelTriggerRef.current.focus();
+          }
+          panelTriggerRef.current = null;
+        }}
+      >
+        {selectedItem && (
+          <StopReasonPanel
+            key={selectedItem.id}
+            item={selectedItem}
+            isPending={stopItemMutation.pendingItemIds.has(selectedItem.id)}
+            onSubmit={handlePreparedPayload}
+          />
+        )}
+      </AnimatePresence>
     </>
   );
 }

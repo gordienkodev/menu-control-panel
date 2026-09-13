@@ -1,5 +1,6 @@
 "use client";
 
+import { motion, useReducedMotion } from "framer-motion";
 import { useEffect } from "react";
 
 type ToastProps = {
@@ -15,6 +16,8 @@ export function Toast({
   onDismiss,
   duration = 5000,
 }: ToastProps) {
+  const shouldReduceMotion = useReducedMotion();
+
   useEffect(() => {
     const timeoutId = window.setTimeout(onDismiss, duration);
 
@@ -22,14 +25,18 @@ export function Toast({
   }, [duration, onDismiss]);
 
   return (
-    <div
+    <motion.div
+      animate={{ opacity: 1, y: 0 }}
       aria-atomic="true"
-      className={`fixed right-6 top-6 z-[60] flex max-w-sm items-start gap-3 rounded-xl border px-4 py-3 text-sm shadow-lg ${
+      className={`fixed inset-x-3 top-3 z-[60] flex max-w-sm items-start gap-3 rounded-xl border px-4 py-3 text-sm shadow-lg sm:inset-x-auto sm:right-6 sm:top-6 ${
         tone === "error"
           ? "border-red-200 bg-red-50 text-red-900"
           : "border-slate-200 bg-white text-slate-900"
       }`}
+      exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -6 }}
+      initial={{ opacity: 0, y: shouldReduceMotion ? 0 : -6 }}
       role={tone === "error" ? "alert" : "status"}
+      transition={{ duration: shouldReduceMotion ? 0 : 0.18 }}
     >
       <p className="font-medium">{message}</p>
       <button
@@ -40,6 +47,6 @@ export function Toast({
       >
         ×
       </button>
-    </div>
+    </motion.div>
   );
 }

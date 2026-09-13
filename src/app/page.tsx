@@ -11,7 +11,7 @@ export default async function Home({ searchParams }: HomeProps) {
   const filters = parseMenuFilters(await searchParams);
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-slate-50 px-3 py-6 text-slate-950 sm:px-6 sm:py-10 lg:px-8">
       <div className="mx-auto max-w-7xl">
         <header className="mb-6">
           <p className="text-sm font-semibold uppercase tracking-wider text-slate-500">

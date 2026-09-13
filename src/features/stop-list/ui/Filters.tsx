@@ -16,7 +16,7 @@ type FiltersProps = {
 };
 
 const selectClassName =
-  "mt-1.5 block min-w-48 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200";
+  "mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200 sm:min-w-48";
 
 export function Filters({ filters }: FiltersProps) {
   const pathname = usePathname();
@@ -51,7 +51,7 @@ export function Filters({ filters }: FiltersProps) {
       aria-label="Фильтры меню"
       className="mb-4 flex flex-wrap gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
     >
-      <label className="text-sm font-medium text-slate-700">
+      <label className="w-full text-sm font-medium text-slate-700 sm:w-auto">
         Цех
         <select
           className={selectClassName}
@@ -66,7 +66,7 @@ export function Filters({ filters }: FiltersProps) {
         </select>
       </label>
 
-      <label className="text-sm font-medium text-slate-700">
+      <label className="w-full text-sm font-medium text-slate-700 sm:w-auto">
         Статус
         <select
           className={selectClassName}
