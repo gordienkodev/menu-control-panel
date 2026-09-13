@@ -42,6 +42,12 @@ for `shop` and `status`: filter controls update it with client-side navigation,
 while the table filters the cached full menu without changing the query key or
 requesting the API again.
 
+The stop-list side panel keeps only `selectedItemId` in a small Zustand store.
+The selected `MenuItem` is resolved from the TanStack Query data, while React
+Hook Form owns the form state. A shared Zod schema validates and produces the
+`StopItemPayload`; submitting currently invokes a local callback and does not
+send a mutation request.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

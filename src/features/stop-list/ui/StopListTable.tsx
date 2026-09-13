@@ -1,16 +1,20 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 import {
   filterMenuItems,
   type MenuFilters,
 } from "@/features/stop-list/model/filters";
 import { menuItemsQueryOptions } from "@/features/stop-list/model/queries";
+import { useStopListUi } from "@/features/stop-list/model/use-stop-list-ui";
+import { StopReasonPanel } from "@/features/stop-list/ui/StopReasonPanel";
 import type {
   MenuItem,
   MenuItemStatus,
   Shop,
+  StopItemPayload,
   StopReason,
 } from "@/types/menu";
 
@@ -23,7 +27,7 @@ const shopLabels: Record<Shop, string> = {
 const stopReasonLabels: Record<StopReason, string> = {
   out_of_stock: "Нет в наличии",
   equipment: "Проблема с оборудованием",
-  quality: "Контроль качества",
+  quality: "Проблема с качеством",
   menu_change: "Изменение меню",
 };
 
@@ -55,7 +59,12 @@ function StopDetails({ status }: { status: MenuItemStatus }) {
   );
 }
 
-function MenuRow({ item }: { item: MenuItem }) {
+type MenuRowProps = {
+  item: MenuItem;
+  onOpenPanel: (itemId: string) => void;
+};
+
+function MenuRow({ item, onOpenPanel }: MenuRowProps) {
   const isStopped = item.status.kind === "stopped";
 
   return (
@@ -82,6 +91,15 @@ function MenuRow({ item }: { item: MenuItem }) {
       <td className="px-6 py-4 text-slate-600">
         <StopDetails status={item.status} />
       </td>
+      <td className="px-6 py-4 text-right">
+        <button
+          className="whitespace-nowrap rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700"
+          type="button"
+          onClick={() => onOpenPanel(item.id)}
+        >
+          {isStopped ? "Редактировать" : "В стоп-лист"}
+        </button>
+      </td>
     </tr>
   );
 }
@@ -106,6 +124,18 @@ type StopListTableProps = {
 
 export function StopListTable({ filters }: StopListTableProps) {
   const menuQuery = useQuery(menuItemsQueryOptions());
+  const selectedItemId = useStopListUi((state) => state.selectedItemId);
+  const openPanel = useStopListUi((state) => state.openPanel);
+  const closePanel = useStopListUi((state) => state.closePanel);
+  const selectedItem = menuQuery.data?.find(
+    (item) => item.id === selectedItemId,
+  );
+
+  useEffect(() => {
+    if (menuQuery.isSuccess && selectedItemId !== null && !selectedItem) {
+      closePanel();
+    }
+  }, [closePanel, menuQuery.isSuccess, selectedItem, selectedItemId]);
 
   if (menuQuery.isPending) {
     return <LoadingState />;
@@ -165,34 +195,50 @@ export function StopListTable({ filters }: StopListTableProps) {
     );
   }
 
+  function handlePreparedPayload(_payload: StopItemPayload): void {
+    // The API mutation will consume this validated payload in the next stage.
+    void _payload;
+  }
+
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-      <table className="w-full min-w-4xl border-collapse text-sm">
-        <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-500">
-          <tr>
-            <th scope="col" className="px-6 py-3 text-left font-semibold">
-              Название
-            </th>
-            <th scope="col" className="px-6 py-3 text-left font-semibold">
-              Цех
-            </th>
-            <th scope="col" className="px-6 py-3 text-left font-semibold">
-              Остаток
-            </th>
-            <th scope="col" className="px-6 py-3 text-left font-semibold">
-              Статус
-            </th>
-            <th scope="col" className="px-6 py-3 text-left font-semibold">
-              Стоп-лист
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-200">
-          {filteredItems.map((item) => (
-            <MenuRow key={item.id} item={item} />
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <>
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+        <table className="w-full min-w-[72rem] border-collapse text-sm">
+          <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th scope="col" className="px-6 py-3 text-left font-semibold">
+                Название
+              </th>
+              <th scope="col" className="px-6 py-3 text-left font-semibold">
+                Цех
+              </th>
+              <th scope="col" className="px-6 py-3 text-left font-semibold">
+                Остаток
+              </th>
+              <th scope="col" className="px-6 py-3 text-left font-semibold">
+                Статус
+              </th>
+              <th scope="col" className="px-6 py-3 text-left font-semibold">
+                Стоп-лист
+              </th>
+              <th scope="col" className="px-6 py-3 text-right font-semibold">
+                Действие
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200">
+            {filteredItems.map((item) => (
+              <MenuRow key={item.id} item={item} onOpenPanel={openPanel} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {selectedItem && (
+        <StopReasonPanel
+          item={selectedItem}
+          onSubmit={handlePreparedPayload}
+        />
+      )}
+    </>
   );
 }
