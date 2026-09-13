@@ -24,7 +24,7 @@ You can start editing the page by modifying `src/app/page.tsx`. The page auto-up
 wraps the application in the client-side `Providers` boundary, which owns the
 TanStack Query client.
 
-The menu data and filter flow is:
+The menu data, mutation, and filter flow is:
 
 ```text
 URL search params
@@ -32,7 +32,7 @@ URL search params
   -> Filters + StopListTable (Client Components)
   -> TanStack Query configuration
   -> menu API transport
-  -> GET /api/menu-items
+  -> GET/POST /api/menu-items
   -> server-only in-memory store
 ```
 
@@ -45,15 +45,23 @@ requesting the API again.
 The stop-list side panel keeps only `selectedItemId` in a small Zustand store.
 The selected `MenuItem` is resolved from the TanStack Query data, while React
 Hook Form owns the form state. A shared Zod schema validates and produces the
-`StopItemPayload`; submitting currently invokes a local callback and does not
-send a mutation request.
+`StopItemPayload`; submitting starts the stop mutation and closes the panel
+immediately so the optimistic row update remains visible.
 
 The server also exposes `POST /api/menu-items/:id/stop` and
 `POST /api/menu-items/:id/resume`. Both handlers update the same server-only
 in-memory store used by the GET endpoint, wait 600 ms, and simulate a failure
 before mutation in roughly 20% of requests. The stop handler reuses the form's
-Zod schema for request validation. These endpoints are not connected to the UI
-yet; TanStack Query mutations and optimistic updates belong to the next stage.
+Zod schema for request validation.
+
+Stop/edit and resume use dedicated TanStack Query mutation hooks. Each hook
+cancels the menu query, snapshots the full cached list, updates the affected
+item immutably, rolls that item back from the snapshot on error, replaces it
+with the server response on success, and invalidates the shared list query when
+the last concurrent menu mutation settles. Pending mutation IDs disable only
+the affected row. Because URL filters are applied to this same full-list cache,
+optimistic status changes are reflected in filtered views without extra cache
+entries or requests.
 
 ## Learn More
 

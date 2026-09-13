@@ -8,6 +8,8 @@ import {
   type MenuFilters,
 } from "@/features/stop-list/model/filters";
 import { menuItemsQueryOptions } from "@/features/stop-list/model/queries";
+import { useResumeItem } from "@/features/stop-list/model/use-resume-item";
+import { useStopItem } from "@/features/stop-list/model/use-stop-item";
 import { useStopListUi } from "@/features/stop-list/model/use-stop-list-ui";
 import { StopReasonPanel } from "@/features/stop-list/ui/StopReasonPanel";
 import type {
@@ -61,11 +63,14 @@ function StopDetails({ status }: { status: MenuItemStatus }) {
 
 type MenuRowProps = {
   item: MenuItem;
+  isPending: boolean;
   onOpenPanel: (itemId: string) => void;
+  onResume: (itemId: string) => void;
 };
 
-function MenuRow({ item, onOpenPanel }: MenuRowProps) {
+function MenuRow({ item, isPending, onOpenPanel, onResume }: MenuRowProps) {
   const isStopped = item.status.kind === "stopped";
+  const cannotResume = isStopped && item.stock === 0;
 
   return (
     <tr className={isStopped ? "bg-red-50/70" : "bg-white"}>
@@ -92,13 +97,37 @@ function MenuRow({ item, onOpenPanel }: MenuRowProps) {
         <StopDetails status={item.status} />
       </td>
       <td className="px-6 py-4 text-right">
-        <button
-          className="whitespace-nowrap rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700"
-          type="button"
-          onClick={() => onOpenPanel(item.id)}
-        >
-          {isStopped ? "Редактировать" : "В стоп-лист"}
-        </button>
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex justify-end gap-2">
+            <button
+              className="whitespace-nowrap rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={isPending}
+              type="button"
+              onClick={() => onOpenPanel(item.id)}
+            >
+              {isPending
+                ? "Сохраняется…"
+                : isStopped
+                  ? "Редактировать"
+                  : "В стоп-лист"}
+            </button>
+            {isStopped && (
+              <button
+                className="whitespace-nowrap rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={cannotResume || isPending}
+                type="button"
+                onClick={() => onResume(item.id)}
+              >
+                Вернуть в продажу
+              </button>
+            )}
+          </div>
+          {cannotResume && (
+            <p className="max-w-64 text-xs text-slate-500">
+              Нельзя вернуть в продажу: остаток равен 0
+            </p>
+          )}
+        </div>
       </td>
     </tr>
   );
@@ -124,6 +153,8 @@ type StopListTableProps = {
 
 export function StopListTable({ filters }: StopListTableProps) {
   const menuQuery = useQuery(menuItemsQueryOptions());
+  const stopItemMutation = useStopItem();
+  const resumeItemMutation = useResumeItem();
   const selectedItemId = useStopListUi((state) => state.selectedItemId);
   const openPanel = useStopListUi((state) => state.openPanel);
   const closePanel = useStopListUi((state) => state.closePanel);
@@ -195,10 +226,18 @@ export function StopListTable({ filters }: StopListTableProps) {
     );
   }
 
-  function handlePreparedPayload(_payload: StopItemPayload): void {
-    // The API mutation will consume this validated payload in the next stage.
-    void _payload;
+  function handlePreparedPayload(payload: StopItemPayload): void {
+    if (selectedItemId === null) {
+      return;
+    }
+
+    stopItemMutation.mutate({ id: selectedItemId, payload });
   }
+
+  const pendingItemIds = new Set([
+    ...stopItemMutation.pendingItemIds,
+    ...resumeItemMutation.pendingItemIds,
+  ]);
 
   return (
     <>
@@ -228,7 +267,13 @@ export function StopListTable({ filters }: StopListTableProps) {
           </thead>
           <tbody className="divide-y divide-slate-200">
             {filteredItems.map((item) => (
-              <MenuRow key={item.id} item={item} onOpenPanel={openPanel} />
+              <MenuRow
+                key={item.id}
+                item={item}
+                isPending={pendingItemIds.has(item.id)}
+                onOpenPanel={openPanel}
+                onResume={(id) => resumeItemMutation.mutate({ id })}
+              />
             ))}
           </tbody>
         </table>
