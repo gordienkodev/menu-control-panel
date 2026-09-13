@@ -63,6 +63,18 @@ the affected row. Because URL filters are applied to this same full-list cache,
 optimistic status changes are reflected in filtered views without extra cache
 entries or requests.
 
+Mutation errors are exposed by the transport as regular `Error` instances. The
+transport preserves readable server messages, translates the API's known error
+messages, and supplies operation-specific fallbacks for unreadable responses or
+network failures.
+The mutation hooks roll back the affected cached item and publish an error toast
+through the existing Zustand UI store. The reusable toast view is mounted next
+to the table, so it remains visible when an optimistic status change temporarily
+produces a filtered empty state. It uses an alert live region, can be dismissed,
+and disappears automatically after five seconds. A per-item synchronous guard
+also complements disabled pending controls to prevent rapid duplicate requests
+before React can render the pending state.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

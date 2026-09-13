@@ -1,6 +1,7 @@
 import { parseMenuFilters } from "@/features/stop-list/model/filters";
 import { Filters } from "@/features/stop-list/ui/Filters";
 import { StopListTable } from "@/features/stop-list/ui/StopListTable";
+import { StopListToast } from "@/features/stop-list/ui/StopListToast";
 
 type HomeProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -24,6 +25,7 @@ export default async function Home({ searchParams }: HomeProps) {
 
         <Filters filters={filters} />
         <StopListTable filters={filters} />
+        <StopListToast />
       </div>
     </main>
   );

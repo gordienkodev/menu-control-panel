@@ -6,12 +6,14 @@ import {
   useQueryClient,
   type Mutation,
 } from "@tanstack/react-query";
+import { useCallback, useRef } from "react";
 
 import { stopMenuItem } from "@/features/stop-list/api/menu-api";
 import {
   menuMutationKeys,
   menuQueryKeys,
 } from "@/features/stop-list/model/queries";
+import { useStopListUi } from "@/features/stop-list/model/use-stop-list-ui";
 import type { MenuItem, StopItemPayload } from "@/types/menu";
 
 export type StopMenuItemVariables = {
@@ -32,6 +34,8 @@ type StopMutation = Mutation<
 
 export function useStopItem() {
   const queryClient = useQueryClient();
+  const activeItemIds = useRef(new Set<string>());
+  const showErrorToast = useStopListUi((state) => state.showErrorToast);
   const pendingItemIds = useMutationState<string, StopMutation>({
     filters: {
       mutationKey: menuMutationKeys.stop(),
@@ -71,16 +75,16 @@ export function useStopItem() {
 
       return { previousItems };
     },
-    onError: (_error, { id }, context) => {
+    onError: (error, { id }, context) => {
       const previousItem = context?.previousItems?.find((item) => item.id === id);
 
-      if (!previousItem) {
-        return;
+      if (previousItem) {
+        queryClient.setQueryData<MenuItem[]>(menuQueryKeys.list(), (items) =>
+          items?.map((item) => (item.id === id ? previousItem : item)),
+        );
       }
 
-      queryClient.setQueryData<MenuItem[]>(menuQueryKeys.list(), (items) =>
-        items?.map((item) => (item.id === id ? previousItem : item)),
-      );
+      showErrorToast(error.message);
     },
     onSuccess: (serverItem) => {
       queryClient.setQueryData<MenuItem[]>(menuQueryKeys.list(), (items) =>
@@ -96,8 +100,23 @@ export function useStopItem() {
     },
   });
 
+  const mutateOnce = useCallback(
+    (variables: StopMenuItemVariables) => {
+      if (activeItemIds.current.has(variables.id)) {
+        return;
+      }
+
+      activeItemIds.current.add(variables.id);
+      mutation.mutate(variables, {
+        onSettled: () => activeItemIds.current.delete(variables.id),
+      });
+    },
+    [mutation],
+  );
+
   return {
     ...mutation,
+    mutateOnce,
     pendingItemIds: new Set(pendingItemIds),
   };
 }

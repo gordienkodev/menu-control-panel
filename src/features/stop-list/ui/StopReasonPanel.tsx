@@ -16,6 +16,7 @@ import type { MenuItem, StopItemPayload } from "@/types/menu";
 
 type StopReasonPanelProps = {
   item: MenuItem;
+  isPending: boolean;
   onSubmit: (payload: StopItemPayload) => void;
 };
 
@@ -36,7 +37,11 @@ function getDefaultValues(item: MenuItem): Partial<StopItemFormValues> {
 const fieldClassName =
   "mt-1.5 block w-full rounded-lg border bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2";
 
-export function StopReasonPanel({ item, onSubmit }: StopReasonPanelProps) {
+export function StopReasonPanel({
+  item,
+  isPending,
+  onSubmit,
+}: StopReasonPanelProps) {
   const closePanel = useStopListUi((state) => state.closePanel);
   const isEditMode = item.status.kind === "stopped";
   const {
@@ -70,6 +75,10 @@ export function StopReasonPanel({ item, onSubmit }: StopReasonPanelProps) {
   }, [closePanel]);
 
   function submitPayload(payload: StopItemFormValues) {
+    if (isPending) {
+      return;
+    }
+
     onSubmit(payload);
     closePanel();
   }
@@ -229,10 +238,15 @@ export function StopReasonPanel({ item, onSubmit }: StopReasonPanelProps) {
               Отмена
             </button>
             <button
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={isPending}
               type="submit"
             >
-              {isEditMode ? "Сохранить" : "Добавить"}
+              {isPending
+                ? "Сохраняется…"
+                : isEditMode
+                  ? "Сохранить"
+                  : "Добавить"}
             </button>
           </div>
         </form>

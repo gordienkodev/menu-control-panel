@@ -71,6 +71,7 @@ type MenuRowProps = {
 function MenuRow({ item, isPending, onOpenPanel, onResume }: MenuRowProps) {
   const isStopped = item.status.kind === "stopped";
   const cannotResume = isStopped && item.stock === 0;
+  const resumeDescriptionId = `resume-${item.id}-description`;
 
   return (
     <tr className={isStopped ? "bg-red-50/70" : "bg-white"}>
@@ -113,6 +114,7 @@ function MenuRow({ item, isPending, onOpenPanel, onResume }: MenuRowProps) {
             </button>
             {isStopped && (
               <button
+                aria-describedby={cannotResume ? resumeDescriptionId : undefined}
                 className="whitespace-nowrap rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={cannotResume || isPending}
                 type="button"
@@ -123,7 +125,10 @@ function MenuRow({ item, isPending, onOpenPanel, onResume }: MenuRowProps) {
             )}
           </div>
           {cannotResume && (
-            <p className="max-w-64 text-xs text-slate-500">
+            <p
+              className="max-w-64 text-xs text-slate-500"
+              id={resumeDescriptionId}
+            >
               Нельзя вернуть в продажу: остаток равен 0
             </p>
           )}
@@ -231,7 +236,7 @@ export function StopListTable({ filters }: StopListTableProps) {
       return;
     }
 
-    stopItemMutation.mutate({ id: selectedItemId, payload });
+    stopItemMutation.mutateOnce({ id: selectedItemId, payload });
   }
 
   const pendingItemIds = new Set([
@@ -272,7 +277,7 @@ export function StopListTable({ filters }: StopListTableProps) {
                 item={item}
                 isPending={pendingItemIds.has(item.id)}
                 onOpenPanel={openPanel}
-                onResume={(id) => resumeItemMutation.mutate({ id })}
+                onResume={(id) => resumeItemMutation.mutateOnce({ id })}
               />
             ))}
           </tbody>
@@ -281,6 +286,7 @@ export function StopListTable({ filters }: StopListTableProps) {
       {selectedItem && (
         <StopReasonPanel
           item={selectedItem}
+          isPending={stopItemMutation.pendingItemIds.has(selectedItem.id)}
           onSubmit={handlePreparedPayload}
         />
       )}
