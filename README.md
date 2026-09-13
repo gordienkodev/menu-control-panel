@@ -16,9 +16,27 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+You can start editing the page by modifying `src/app/page.tsx`. The page auto-updates as you edit the file.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Current architecture
+
+`src/app/page.tsx` and `src/app/layout.tsx` remain Server Components. The layout
+wraps the application in the client-side `Providers` boundary, which owns the
+TanStack Query client.
+
+The menu data flow is:
+
+```text
+Page (Server Component)
+  -> StopListTable (Client Component)
+  -> TanStack Query configuration
+  -> menu API transport
+  -> GET /api/menu-items
+  -> server-only in-memory store
+```
+
+Server state stays in the TanStack Query cache. UI components do not call
+`fetch` or import the server store directly.
 
 ## Learn More
 
