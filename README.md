@@ -1,101 +1,226 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Menu Control Panel
 
-## Getting Started
+Административная панель стоп-листа для управления доступностью позиций меню. Приложение отображает позиции и остатки по цехам, хранит фильтры по цеху и статусу в URL и позволяет останавливать, редактировать и возвращать позиции в продажу с помощью optimistic update и rollback при ошибках API.
 
-First, run the development server:
+[Демонстрация](https://menu-control-panel.vercel.app/)
+
+## Возможности
+
+- Просмотр позиций меню, их цеха, остатка, доступности и параметров остановки.
+- Фильтрация по цеху и статусу через URL search params.
+- Постановка доступной позиции в стоп-лист и редактирование причины и срока существующей остановки.
+- Возврат остановленной позиции в продажу при ненулевом остатке.
+- Мгновенное отображение изменений с помощью optimistic update в query cache.
+- Rollback изменённой позиции и показ уведомления при ошибке mutation.
+- Отдельные состояния загрузки, ошибки с повторным запросом, пустого меню и отсутствия результатов фильтрации.
+
+## Технологии
+
+- Next.js 16 App Router, React 19 и TypeScript
+- Tailwind CSS 4
+- TanStack Query 5 для server state и mutations
+- Zustand 5 для временного UI state
+- React Hook Form и Zod 4 для состояния формы и общей валидации
+- Framer Motion для небольших UI-переходов
+- Vitest, jsdom и Testing Library для целевого теста hook
+
+## Локальный запуск
+
+Установите зависимости и запустите development server:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Откройте [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `src/app/page.tsx`. The page auto-updates as you edit the file.
+Для локальной проверки production build:
 
-## Current architecture
+```bash
+npm run build
+npm start
+```
 
-`src/app/page.tsx` and `src/app/layout.tsx` remain Server Components. The layout
-wraps the application in the client-side `Providers` boundary, which owns the
-TanStack Query client.
+## Доступные команды
 
-The menu data, mutation, and filter flow is:
+```bash
+npm run dev     # запуск development server
+npm run build   # создание production build
+npm start       # запуск production build
+npm run lint    # запуск ESLint
+npm test        # однократный запуск Vitest
+```
+
+## Структура проекта
 
 ```text
-URL search params
-  -> Page (Server Component): parse and normalize shop/status
-  -> Filters + StopListTable (Client Components)
-  -> TanStack Query configuration
-  -> menu API transport
-  -> GET/POST /api/menu-items
-  -> server-only in-memory store
+src/
+├── app/
+│   ├── api/menu-items/          # Route Handlers для GET, stop и resume
+│   ├── layout.tsx               # корневой layout — Server Component
+│   ├── page.tsx                 # композиция страницы и разбор URL на сервере
+│   └── providers.tsx            # клиентская граница QueryClientProvider
+├── features/stop-list/
+│   ├── api/                     # типизированный клиентский HTTP transport
+│   ├── model/                   # queries, mutations, фильтры, валидация и UI store
+│   └── ui/                      # фильтры, таблица, панель остановки и toast
+├── server/                      # server-only in-memory хранилище меню
+├── shared/ui/                   # переиспользуемые презентационные компоненты
+└── types/                       # общие доменные типы меню
 ```
 
-Server state stays in the TanStack Query cache. UI components do not call
-`fetch` or import the server store directly. The URL is the only source of truth
-for `shop` and `status`: filter controls update it with client-side navigation,
-while the table filters the cached full menu without changing the query key or
-requesting the API again.
+Проект использует лёгкую feature-oriented структуру. Бизнес-логика стоп-листа и работа с query cache находятся внутри фичи, shared UI не зависит от предметной области, а in-memory хранилище явно ограничено server-only кодом.
 
-The stop-list side panel keeps only `selectedItemId` in a small Zustand store.
-The selected `MenuItem` is resolved from the TanStack Query data, while React
-Hook Form owns the form state. A shared Zod schema validates and produces the
-`StopItemPayload`; submitting starts the stop mutation and closes the panel
-immediately so the optimistic row update remains visible.
+## Архитектура и data flow
 
-The server also exposes `POST /api/menu-items/:id/stop` and
-`POST /api/menu-items/:id/resume`. Both handlers update the same server-only
-in-memory store used by the GET endpoint, wait 600 ms, and simulate a failure
-before mutation in roughly 20% of requests. The stop handler reuses the form's
-Zod schema for request validation.
+```text
+UI components
+  -> feature model hooks
+  -> feature API transport
+  -> Next.js Route Handlers
+  -> server-only menu store
+```
 
-Stop/edit and resume use dedicated TanStack Query mutation hooks. Each hook
-cancels the menu query, snapshots the full cached list, updates the affected
-item immutably, rolls that item back from the snapshot on error, replaces it
-with the server response on success, and invalidates the shared list query when
-the last concurrent menu mutation settles. Pending mutation IDs disable only
-the affected row. Because URL filters are applied to this same full-list cache,
-optimistic status changes are reflected in filtered views without extra cache
-entries or requests.
+UI-компоненты не выполняют `fetch` напрямую. Query и mutation hooks в model-слое фичи управляют TanStack Query, а `features/stop-list/api/menu-api.ts` содержит клиентский HTTP transport и нормализует ошибки запросов. Route Handlers валидируют входные данные и вызывают операции server-only хранилища.
 
-Mutation errors are exposed by the transport as regular `Error` instances. The
-transport preserves readable server messages, translates the API's known error
-messages, and supplies operation-specific fallbacks for unreadable responses or
-network failures.
-The mutation hooks roll back the affected cached item and publish an error toast
-through the existing Zustand UI store. The reusable toast view is mounted next
-to the table, so it remains visible when an optimistic status change temporarily
-produces a filtered empty state. It uses an alert live region, can be dismissed,
-and disappears automatically after five seconds. A per-item synchronous guard
-also complements disabled pending controls to prevent rapid duplicate requests
-before React can render the pending state.
+Для полного `MenuItem[]` используется один TanStack Query key. Фильтры применяются на клиенте поверх закешированного списка, поэтому их комбинации не создают отдельные запросы или записи в query cache.
 
-The stop-list UI uses short Framer Motion transitions for the dialog backdrop,
-side panel, toast, status badge, and filtered empty state. Each transition checks
-the user's reduced-motion preference and removes transform movement when motion
-is reduced. The dialog focuses its first form control when opened, contains Tab
-navigation, closes through Escape, its close buttons, or the backdrop, and
-returns focus to the action button after its exit animation when that button is
-still present. Dialog labels, validation errors, row-level pending state, toast
-announcements, and the disabled zero-stock resume explanation are exposed with
-targeted ARIA attributes. The filters wrap on narrow screens, the panel remains
-inside the viewport, and the semantic table is available in a keyboard-focusable
-horizontal scroll region.
+## Server / Client boundary
 
-## Learn More
+### Server side
 
-To learn more about Next.js, take a look at the following resources:
+- `app/layout.tsx` и `app/page.tsx` остаются Server Components.
+- Страница ожидает `searchParams`, разбирает поддерживаемые фильтры и передаёт нормализованные значения интерактивным компонентам.
+- Route Handlers предоставляют API меню, валидируют stop-запросы, симулируют ошибки mutations и применяют server-side ограничения.
+- `server/menu-store.ts` импортирует `server-only` и отвечает за seed-данные, а также операции stop и resume.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Client side
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `app/providers.tsx` создаёт TanStack Query client.
+- Фильтры используют браузерную навигацию для обновления URL search params.
+- TanStack Query hooks загружают данные и выполняют optimistic mutations.
+- Zustand координирует выбранную позицию панели и error toast.
+- React Hook Form управляет состоянием формы и запускает общую Zod-схему через resolver.
+- Таблица, взаимодействие с диалогом, управление фокусом и анимации Framer Motion требуют Client Components.
 
-## Deploy on Vercel
+## Владение состоянием
 
-- [Menu Control Panel Link](https://menu-control-panel.vercel.app/)
+| Состояние | Владелец | Причина |
+| --- | --- | --- |
+| Позиции меню и состояние mutations | TanStack Query | Удалённые данные имеют одного владельца query cache, включая pending state и синхронизацию. |
+| Фильтры `shop` и `status` | URL search params | Выбранное представление восстанавливается после reload и при навигации Back/Forward. |
+| Выбранная позиция, панель и error toast | Zustand | Это временное клиентское UI state. |
+| Значения и ошибки stop/edit формы | React Hook Form | Состояние формы остаётся локальным для панели. |
+
+`MenuItem[]` не копируется в Zustand. Выбранная позиция определяется по ID из актуальных данных TanStack Query.
+
+## URL-фильтры
+
+URL является source of truth для фильтров по цеху и статусу. Например:
+
+```text
+?shop=kitchen&status=stopped
+```
+
+Изменение одного фильтра сохраняет второй, а выбор значения «Все» удаляет соответствующий параметр. Неподдерживаемые или повторяющиеся значения трактуются как отсутствие фильтра. Навигация через URL обеспечивает восстановление состояния после reload и естественную работу браузерных Back/Forward без синхронизации с отдельным локальным состоянием фильтров.
+
+## API
+
+| Endpoint | Поведение |
+| --- | --- |
+| `GET /api/menu-items` | Возвращает полный список позиций меню. |
+| `POST /api/menu-items/:id/stop` | Останавливает позицию или обновляет существующую остановку с помощью `{ reason, until }`. |
+| `POST /api/menu-items/:id/resume` | Возвращает остановленную позицию в продажу, если остаток это допускает. |
+
+Каждый endpoint имеет фиксированную искусственную задержку 600 мс. Mutation endpoints завершаются ошибкой до изменения хранилища примерно в 20% запросов. Это сделано намеренно, чтобы состояния pending, optimistic update, сообщение об ошибке и rollback можно было наблюдать в интерфейсе. API использует `400` для невалидного stop-запроса, `404` для неизвестной позиции, `409` при попытке вернуть позицию с нулевым остатком и `500` для симулированной ошибки.
+
+## Валидация
+
+`stopItemSchema` переиспользуется клиентской формой и stop Route Handler, что предотвращает расхождение правил валидации на клиенте и сервере. Схема требует одну из поддерживаемых причин остановки и принимает либо `null` — до конца смены, — либо ISO datetime с указанием смещения.
+
+Конкретные дата и время должны:
+
+- находиться в будущем;
+- быть не более чем на 24 часа позже момента валидации;
+- соответствовать шагу 15 минут.
+
+Значение `datetime-local` преобразуется в ISO string и обратно на границе формы.
+
+## Optimistic update и rollback
+
+Stop/edit и resume используют отдельные mutation hooks, но обновляют общий cache полного списка:
+
+1. Отменяется активный query списка меню.
+2. Сохраняется snapshot текущего закешированного списка.
+3. В query cache иммутабельно обновляется только выбранная позиция.
+4. Отправляется mutation-запрос.
+5. При ошибке позиция восстанавливается из snapshot и показывается toast.
+6. При успехе optimistic item заменяется актуальным ответом сервера.
+7. После завершения последней параллельной menu mutation общий query инвалидируется.
+
+```text
+Действие пользователя
+  -> optimistic update query cache
+  -> API request
+     -> success: синхронизация с ответом сервера
+     -> error: rollback позиции + toast
+  -> invalidation общего query
+```
+
+Rollback восстанавливает только изменённую строку, а не заменяет весь cache. Это не перезаписывает несвязанные параллельные изменения. Pending IDs блокируют только соответствующие строки. При ошибке mutation список остаётся смонтированным, поэтому повторного full-list loading и мерцания не возникает.
+
+## Поведение stop, edit и resume
+
+- Для доступной позиции открывается пустая stop-форма.
+- Для остановленной позиции та же панель открывается в edit mode с текущей причиной и сроком.
+- Stop и edit используют один endpoint и один mutation flow.
+- Остановленную позицию можно вернуть в продажу при `stock > 0`.
+- При `stock === 0` resume-кнопка disabled и связана с видимым объяснением; сервер независимо применяет то же ограничение и возвращает `409`.
+- Синхронная защита на уровне позиции предотвращает повторный stop или resume до отображения pending state.
+
+## Обработка ошибок
+
+API transport преобразует сетевые ошибки и неуспешные ответы в обычные экземпляры `Error` с понятными сообщениями для соответствующей операции. Mutation hooks выполняют rollback optimistic item до публикации error toast. Известные ответы `400`, `404`, `409` и `500` обрабатываются без замены списка или перезагрузки страницы.
+
+## Доступность и responsive behavior
+
+Интерфейс использует семантическую таблицу и нативные элементы формы. Stop-панель имеет семантику диалога, связанные заголовок и описание, начальную установку фокуса, удержание Tab/Shift+Tab внутри панели, закрытие через Escape или backdrop и восстановление фокуса после закрытия. Сообщения валидации и ограничение resume при нулевом остатке связаны с элементами управления через ARIA-атрибуты; pending state строки передаётся через `aria-busy`; error toast использует alert live region.
+
+Анимации учитывают `prefers-reduced-motion`. Интерфейс спроектирован desktop-first с основной целевой шириной около 1280 px. На более узких экранах фильтры переносятся, панель остаётся внутри viewport и прокручивается по вертикали, а подписанный регион таблицы поддерживает доступную с клавиатуры горизонтальную прокрутку.
+
+## Тесты
+
+Запуск тестов:
+
+```bash
+npm test
+```
+
+В проекте намеренно оставлен один целевой тест для наиболее рискованного сценария управления состоянием. Он рендерит реальный `useStopItem` hook с изолированным Query Client и управляемым отклонённым Promise транспортного слоя, после чего проверяет переход:
+
+```text
+available -> optimistic stopped -> API error -> rollback to available
+```
+
+Это сфокусированное покрытие optimistic rollback, а не заявление о полном test coverage.
+
+## Технические решения
+
+1. **TanStack Query — единственный владелец server state.** Полное меню хранится в одном query cache, поэтому его не нужно синхронизировать с копиями в компонентах или Zustand, а mutations имеют одну предсказуемую точку согласования данных.
+2. **URL владеет состоянием фильтров.** Ссылки остаются воспроизводимыми, фильтры переживают reload и работают с историей браузера без дополнительного слоя состояния.
+3. **Zustand ограничен временной UI-координацией.** Выбор позиции панели и toast должны быть доступны нескольким Client Components, но доменные данные и значения формы остаются у предназначенных для них инструментов.
+4. **Одна Zod-схема валидирует обе границы.** Повторное использование runtime validation в форме и Route Handler исключает дублирование правил, при этом сервер остаётся авторитетной границей проверки.
+
+## Текущее ограничение
+
+Backend использует in-memory хранилище в рамках тестового задания. Данные существуют только в текущем server process/runtime: restart, redeploy или другой runtime instance могут вернуть или показать seed-данные вместо предыдущих изменений. Это не production persistence.
+
+Persistence и инфраструктура намеренно оставлены минимальными, чтобы сосредоточиться на владении состоянием, Server/Client boundary и optimistic mutation UX.
+
+## Что можно улучшить
+
+- Заменить in-memory хранилище на постоянную БД и определить безопасную семантику конкурентных обновлений.
+- Добавить тесты Route Handlers и mutations для успешных операций, валидации, неизвестных позиций, нулевого остатка и конкурентных изменений.
+- Добавить E2E-покрытие URL-навигации и stop/edit/resume сценариев, включая сообщения о rollback.
+- Добавить production observability для неуспешных запросов и неожиданных клиентских ошибок.
