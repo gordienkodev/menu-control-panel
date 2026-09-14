@@ -273,7 +273,7 @@ export function StopListTable({ filters }: StopListTableProps) {
         role="region"
         tabIndex={0}
       >
-        <table className="w-full min-w-[72rem] border-collapse text-sm">
+        <table className="w-full min-w-6xl border-collapse text-sm">
           <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th scope="col" className="px-6 py-3 text-left font-semibold">

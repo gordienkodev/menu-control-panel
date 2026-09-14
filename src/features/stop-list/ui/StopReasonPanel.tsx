@@ -57,7 +57,7 @@ export function StopReasonPanel({
     formState: { errors },
   } = useForm<StopItemFormValues>({
     resolver: zodResolver(stopItemSchema),
-    mode: "onBlur",
+    mode: "onSubmit",
     defaultValues: getDefaultValues(item),
   });
   const until = useWatch({ control, name: "until" });

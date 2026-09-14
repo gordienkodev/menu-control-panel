@@ -28,7 +28,7 @@ export function Toast({
     <motion.div
       animate={{ opacity: 1, y: 0 }}
       aria-atomic="true"
-      className={`fixed inset-x-3 top-3 z-[60] flex max-w-sm items-start gap-3 rounded-xl border px-4 py-3 text-sm shadow-lg sm:inset-x-auto sm:right-6 sm:top-6 ${
+      className={`fixed inset-x-3 top-3 z-60 flex max-w-sm items-start gap-3 rounded-xl border px-4 py-3 text-sm shadow-lg sm:inset-x-auto sm:right-6 sm:top-6 ${
         tone === "error"
           ? "border-red-200 bg-red-50 text-red-900"
           : "border-slate-200 bg-white text-slate-900"
